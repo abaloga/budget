@@ -1,0 +1,11 @@
+{
+  "name": "@budget/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Platform-agnostic personal-finance domain logic. No React, no Supabase, no DOM, no Node APIs.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "sideEffects": false
+}

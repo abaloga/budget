@@ -1,0 +1,69 @@
+/**
+ * Savings goal progress and the monthly contribution needed to hit a target date.
+ */
+import { dayOfMonth, monthDiff } from './dates.ts';
+import type { Cents, ISODate, SavingsGoal } from './types.ts';
+
+export interface GoalProgress {
+  currentCents: Cents;
+  targetCents: Cents;
+  remainingCents: Cents;
+  /** 0..1, capped at 1. */
+  percent: number;
+  isComplete: boolean;
+  /** Whole months left until the target date (min 0), or null without a date. */
+  monthsRemaining: number | null;
+  /** Approximate amount to save per month to reach the target on time. */
+  monthlyNeededCents: Cents | null;
+  isPastDue: boolean;
+}
+
+/** Months between today and the target date, counting only full month boundaries. */
+export function monthsUntil(today: ISODate, target: ISODate): number {
+  let months = monthDiff(today, target);
+  if (dayOfMonth(target) < dayOfMonth(today)) months -= 1;
+  return Math.max(months, 0);
+}
+
+/**
+ * @param linkedBalanceCents balance of the linked account, used instead of the
+ *   manually tracked amount when the goal is linked to an account.
+ */
+export function goalProgress(
+  goal: Pick<SavingsGoal, 'targetCents' | 'currentCents' | 'targetDate' | 'accountId'>,
+  today: ISODate,
+  linkedBalanceCents?: Cents | null,
+): GoalProgress {
+  const currentCents = Math.max(
+    goal.accountId && linkedBalanceCents != null ? linkedBalanceCents : goal.currentCents,
+    0,
+  );
+  const remainingCents = Math.max(goal.targetCents - currentCents, 0);
+  const isComplete = remainingCents === 0;
+  const percent = goal.targetCents > 0 ? Math.min(currentCents / goal.targetCents, 1) : 0;
+
+  let monthsRemaining: number | null = null;
+  let monthlyNeededCents: Cents | null = null;
+  let isPastDue = false;
+  if (goal.targetDate) {
+    isPastDue = goal.targetDate < today && !isComplete;
+    monthsRemaining = monthsUntil(today, goal.targetDate);
+    if (!isComplete) {
+      // Past due or due this month: the full remainder is needed now.
+      monthlyNeededCents = Math.ceil(remainingCents / Math.max(monthsRemaining, 1));
+    } else {
+      monthlyNeededCents = 0;
+    }
+  }
+
+  return {
+    currentCents,
+    targetCents: goal.targetCents,
+    remainingCents,
+    percent,
+    isComplete,
+    monthsRemaining,
+    monthlyNeededCents,
+    isPastDue,
+  };
+}

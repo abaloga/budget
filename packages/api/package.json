@@ -1,0 +1,17 @@
+{
+  "name": "@budget/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Typed Supabase data access shared by the web and (future) native clients.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@budget/core": "*"
+  },
+  "peerDependencies": {
+    "@supabase/supabase-js": "^2.100.0"
+  }
+}

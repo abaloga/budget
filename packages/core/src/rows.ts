@@ -1,0 +1,333 @@
+/**
+ * Database row shapes (snake_case, as returned by PostgREST) and mappers to
+ * domain objects. Shared by packages/api (clients) and the edge functions so
+ * every consumer maps rows identically.
+ *
+ * Postgres bigint columns may arrive as strings; `num` normalizes them.
+ */
+import type {
+  Account,
+  AccountType,
+  Budget,
+  CategorizationRule,
+  Category,
+  CategoryKind,
+  CategoryMonthTotal,
+  CategorySource,
+  Connection,
+  ConnectionStatus,
+  KindSource,
+  MerchantTotal,
+  RecurringFrequency,
+  RecurringSeries,
+  RuleDirection,
+  RuleNameOperator,
+  SavingsGoal,
+  Split,
+  Transaction,
+  TransactionKind,
+  TransactionSource,
+  TransactionWithSplits,
+} from './types.ts';
+
+type Numeric = number | string;
+
+export function num(v: Numeric): number {
+  return typeof v === 'number' ? v : Number(v);
+}
+
+export function numOrNull(v: Numeric | null | undefined): number | null {
+  return v == null ? null : num(v);
+}
+
+export interface CategoryRow {
+  id: string;
+  parent_id: string | null;
+  name: string;
+  kind: string;
+  system_key: string | null;
+  color: string | null;
+  sort_order: number;
+  rollover_enabled: boolean;
+  rollover_start_month: string | null;
+  is_archived: boolean;
+}
+
+export const categoryFromRow = (r: CategoryRow): Category => ({
+  id: r.id,
+  parentId: r.parent_id,
+  name: r.name,
+  kind: r.kind as CategoryKind,
+  systemKey: r.system_key,
+  color: r.color,
+  sortOrder: r.sort_order,
+  rolloverEnabled: r.rollover_enabled,
+  rolloverStartMonth: r.rollover_start_month,
+  isArchived: r.is_archived,
+});
+
+export interface ConnectionRow {
+  id: string;
+  institution_name: string;
+  status: string;
+  status_detail: string | null;
+  last_synced_at: string | null;
+  created_at: string;
+}
+
+export const connectionFromRow = (r: ConnectionRow): Connection => ({
+  id: r.id,
+  institutionName: r.institution_name,
+  status: r.status as ConnectionStatus,
+  statusDetail: r.status_detail,
+  lastSyncedAt: r.last_synced_at,
+  createdAt: r.created_at,
+});
+
+export interface AccountRow {
+  id: string;
+  connection_id: string;
+  name: string;
+  display_name: string | null;
+  official_name: string | null;
+  mask: string | null;
+  type: string;
+  subtype: string | null;
+  current_balance_cents: Numeric | null;
+  available_balance_cents: Numeric | null;
+  credit_limit_cents: Numeric | null;
+  iso_currency_code: string;
+  balance_updated_at: string | null;
+  is_hidden: boolean;
+  is_active: boolean;
+}
+
+export const accountFromRow = (r: AccountRow): Account => ({
+  id: r.id,
+  connectionId: r.connection_id,
+  name: r.name,
+  displayName: r.display_name,
+  officialName: r.official_name,
+  mask: r.mask,
+  type: r.type as AccountType,
+  subtype: r.subtype,
+  currentBalanceCents: numOrNull(r.current_balance_cents),
+  availableBalanceCents: numOrNull(r.available_balance_cents),
+  creditLimitCents: numOrNull(r.credit_limit_cents),
+  isoCurrencyCode: r.iso_currency_code,
+  balanceUpdatedAt: r.balance_updated_at,
+  isHidden: r.is_hidden,
+  isActive: r.is_active,
+});
+
+export interface TransactionRow {
+  id: string;
+  account_id: string | null;
+  source: string;
+  name: string;
+  date: string;
+  amount_cents: Numeric;
+  iso_currency_code: string;
+  pending: boolean;
+  merchant_key: string;
+  original_name: string;
+  original_merchant_name: string | null;
+  original_date: string;
+  name_override: string | null;
+  date_override: string | null;
+  notes: string | null;
+  category_id: string | null;
+  category_source: string;
+  kind: string;
+  kind_source: string;
+  transfer_pair_id: string | null;
+  recurring_id: string | null;
+  provider_category_primary: string | null;
+  provider_category_detailed: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SplitRow {
+  id: string;
+  category_id: string;
+  amount_cents: Numeric;
+  notes: string | null;
+  sort_order?: number;
+}
+
+export const splitFromRow = (r: SplitRow): Split => ({
+  id: r.id,
+  categoryId: r.category_id,
+  amountCents: num(r.amount_cents),
+  notes: r.notes,
+});
+
+export const transactionFromRow = (r: TransactionRow): Transaction => ({
+  id: r.id,
+  accountId: r.account_id,
+  source: r.source as TransactionSource,
+  name: r.name,
+  date: r.date,
+  amountCents: num(r.amount_cents),
+  isoCurrencyCode: r.iso_currency_code,
+  pending: r.pending,
+  merchantKey: r.merchant_key,
+  originalName: r.original_name,
+  originalMerchantName: r.original_merchant_name,
+  originalDate: r.original_date,
+  nameOverride: r.name_override,
+  dateOverride: r.date_override,
+  notes: r.notes,
+  categoryId: r.category_id,
+  categorySource: r.category_source as CategorySource,
+  kind: r.kind as TransactionKind,
+  kindSource: r.kind_source as KindSource,
+  transferPairId: r.transfer_pair_id,
+  recurringId: r.recurring_id,
+  providerCategoryPrimary: r.provider_category_primary,
+  providerCategoryDetailed: r.provider_category_detailed,
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
+});
+
+export const transactionWithSplitsFromRow = (
+  r: TransactionRow & { transaction_splits?: SplitRow[] | null },
+): TransactionWithSplits => ({
+  ...transactionFromRow(r),
+  splits: [...(r.transaction_splits ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map(splitFromRow),
+});
+
+export interface BudgetRow {
+  category_id: string;
+  month: string;
+  amount_cents: Numeric;
+}
+
+export const budgetFromRow = (r: BudgetRow): Budget => ({
+  categoryId: r.category_id,
+  month: r.month,
+  amountCents: num(r.amount_cents),
+});
+
+export interface RuleRow {
+  id: string;
+  is_enabled: boolean;
+  priority: number;
+  name_operator: string | null;
+  name_value: string | null;
+  account_id: string | null;
+  direction: string | null;
+  amount_min_cents: Numeric | null;
+  amount_max_cents: Numeric | null;
+  set_category_id: string | null;
+  set_kind: string | null;
+  created_at: string;
+}
+
+export const ruleFromRow = (r: RuleRow): CategorizationRule => ({
+  id: r.id,
+  isEnabled: r.is_enabled,
+  priority: r.priority,
+  nameOperator: r.name_operator as RuleNameOperator | null,
+  nameValue: r.name_value,
+  accountId: r.account_id,
+  direction: r.direction as RuleDirection | null,
+  amountMinCents: numOrNull(r.amount_min_cents),
+  amountMaxCents: numOrNull(r.amount_max_cents),
+  setCategoryId: r.set_category_id,
+  setKind: r.set_kind as TransactionKind | null,
+  createdAt: r.created_at,
+});
+
+export interface RecurringRow {
+  id: string;
+  name: string;
+  merchant_key: string | null;
+  account_id: string | null;
+  category_id: string | null;
+  kind: string;
+  frequency: string;
+  expected_amount_cents: Numeric;
+  amount_min_cents: Numeric | null;
+  amount_max_cents: Numeric | null;
+  last_date: string | null;
+  next_date: string | null;
+  status: string;
+  source: string;
+  notes: string | null;
+}
+
+export const recurringFromRow = (r: RecurringRow): RecurringSeries => ({
+  id: r.id,
+  name: r.name,
+  merchantKey: r.merchant_key,
+  accountId: r.account_id,
+  categoryId: r.category_id,
+  kind: r.kind as CategoryKind,
+  frequency: r.frequency as RecurringFrequency,
+  expectedAmountCents: num(r.expected_amount_cents),
+  amountMinCents: numOrNull(r.amount_min_cents),
+  amountMaxCents: numOrNull(r.amount_max_cents),
+  lastDate: r.last_date,
+  nextDate: r.next_date,
+  status: r.status as RecurringSeries['status'],
+  source: r.source as RecurringSeries['source'],
+  notes: r.notes,
+});
+
+export interface GoalRow {
+  id: string;
+  name: string;
+  target_cents: Numeric;
+  current_cents: Numeric;
+  account_id: string | null;
+  target_date: string | null;
+  color: string | null;
+  sort_order: number;
+  is_archived: boolean;
+}
+
+export const goalFromRow = (r: GoalRow): SavingsGoal => ({
+  id: r.id,
+  name: r.name,
+  targetCents: num(r.target_cents),
+  currentCents: num(r.current_cents),
+  accountId: r.account_id,
+  targetDate: r.target_date,
+  color: r.color,
+  sortOrder: r.sort_order,
+  isArchived: r.is_archived,
+});
+
+export interface CategoryMonthTotalRow {
+  month: string;
+  category_id: string | null;
+  kind: string;
+  total_cents: Numeric;
+  line_count: number;
+}
+
+export const categoryMonthTotalFromRow = (r: CategoryMonthTotalRow): CategoryMonthTotal => ({
+  month: r.month,
+  categoryId: r.category_id,
+  kind: r.kind as TransactionKind,
+  totalCents: num(r.total_cents),
+  lineCount: r.line_count,
+});
+
+export interface MerchantTotalRow {
+  merchant_key: string;
+  name: string;
+  kind: string;
+  total_cents: Numeric;
+  line_count: number;
+}
+
+export const merchantTotalFromRow = (r: MerchantTotalRow): MerchantTotal => ({
+  merchantKey: r.merchant_key,
+  name: r.name,
+  kind: r.kind as TransactionKind,
+  totalCents: num(r.total_cents),
+  lineCount: r.line_count,
+});

@@ -1,0 +1,58 @@
+/**
+ * Cash flow: Income − Expenses = Net.
+ *
+ *   income   = sum of income-kind lines (a reversed paycheck reduces it)
+ *   expenses = −(sum of expense-kind lines) (refunds reduce it)
+ *   transfers are excluded entirely
+ */
+import { monthStart } from './dates.ts';
+import type { Cents, MonthStart, TransactionKind } from './types.ts';
+
+export interface CashFlow {
+  incomeCents: Cents;
+  expenseCents: Cents;
+  netCents: Cents;
+}
+
+export interface MonthlyCashFlow extends CashFlow {
+  month: MonthStart;
+}
+
+interface KindAmount {
+  kind: TransactionKind;
+  /** Signed line amount or signed total. */
+  amountCents?: Cents;
+  totalCents?: Cents;
+}
+
+const amountOf = (x: KindAmount) => x.totalCents ?? x.amountCents ?? 0;
+
+export function cashFlow(items: Iterable<KindAmount>): CashFlow {
+  let incomeCents = 0;
+  let expenseCents = 0;
+  for (const item of items) {
+    if (item.kind === 'income') incomeCents += amountOf(item);
+    else if (item.kind === 'expense') expenseCents -= amountOf(item);
+  }
+  return { incomeCents, expenseCents, netCents: incomeCents - expenseCents };
+}
+
+/** One entry per month in `months` (zero-filled), from month-grouped totals. */
+export function monthlyCashFlow(
+  totals: Iterable<KindAmount & { month: string }>,
+  months: readonly MonthStart[],
+): MonthlyCashFlow[] {
+  const byMonth = new Map<string, (KindAmount & { month: string })[]>();
+  for (const t of totals) {
+    const m = monthStart(t.month);
+    const list = byMonth.get(m) ?? [];
+    list.push(t);
+    byMonth.set(m, list);
+  }
+  return months.map((month) => ({ month, ...cashFlow(byMonth.get(month) ?? []) }));
+}
+
+/** Share of income kept (net / income), or null without income. */
+export function savingsRate(cf: CashFlow): number | null {
+  return cf.incomeCents > 0 ? cf.netCents / cf.incomeCents : null;
+}

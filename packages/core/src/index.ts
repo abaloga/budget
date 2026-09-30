@@ -1,0 +1,29 @@
+/**
+ * @budget/core — platform-agnostic personal-finance logic.
+ *
+ * Rules for this package (so the web app, the future Expo app and the Deno
+ * edge functions can all use it):
+ *   * no React, DOM, Node, Deno or Supabase imports
+ *   * no runtime dependencies
+ *   * relative imports use explicit `.ts` extensions (required by Deno)
+ *   * money is integer cents; dates are `YYYY-MM-DD` strings
+ */
+export * from './types.ts';
+export * from './money.ts';
+export * from './dates.ts';
+export * from './merchant.ts';
+export * from './providerCategories.ts';
+export * from './rules.ts';
+export * from './categorize.ts';
+export * from './transfers.ts';
+export * from './splits.ts';
+export * from './budget.ts';
+export * from './cashflow.ts';
+export * from './reports.ts';
+export * from './recurring.ts';
+export * from './goals.ts';
+export * from './accounts.ts';
+export * from './filters.ts';
+export * from './plaid.ts';
+export * from './sync.ts';
+export * from './rows.ts';

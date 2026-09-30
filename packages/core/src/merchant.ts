@@ -1,0 +1,54 @@
+/**
+ * Merchant normalization.
+ *
+ * `merchantKey` is the stable identity used for categorization history,
+ * recurring detection and merchant reports. It is computed once when a
+ * transaction is created (by the sync edge function or a client) and stored,
+ * so every platform must use this exact function.
+ */
+
+// Card-processor / bank noise that prefixes the real merchant name.
+const PREFIXES = [
+  /^(sq|tst|sp|py|pp|paypal|stripe|dd|ckcd|pos|ach|dbt|dda)\s*\*\s*/,
+  /^(sq|tst)\s+/,
+  /^(pos|debit card|debit|checkcard|check card|visa|recurring)\s+(purchase|pmt|payment|debit)?\s*/,
+  /^purchase\s+(authorized\s+)?(on\s+\d{1,2}\/\d{1,2}\s+)?/,
+];
+
+/** Store numbers, card-network reference ids and similar per-charge noise. */
+function isReferenceToken(token: string): boolean {
+  const digits = token.replace(/\D/g, '').length;
+  if (digits >= 3) return true;
+  // Mixed ids like "p1a2b3" (but keep short brand names such as "7eleven", "3m").
+  return digits >= 2 && token.length >= 6 && /[a-z]/.test(token);
+}
+
+export function normalizeMerchant(raw: string): string {
+  let s = raw.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '');
+  s = s.replace(/[‘’']/g, '');
+
+  for (let i = 0; i < 3; i++) {
+    const before = s;
+    for (const re of PREFIXES) s = s.replace(re, '');
+    if (s === before) break;
+  }
+
+  s = s
+    .replace(/\b(www\.)?([a-z0-9-]+)\.(com|net|org|co|io|tv)\b/g, '$2') // netflix.com -> netflix
+    .replace(/\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/g, ' ') // dates
+    .replace(/#\s*\d+/g, ' ') // store numbers "#1234"
+    .replace(/[^a-z0-9&]+/g, ' ')
+    .split(' ')
+    .filter((token) => token && !isReferenceToken(token))
+    .join(' ');
+
+  if (!s) {
+    s = raw.toLowerCase().replace(/\s+/g, ' ').trim();
+  }
+  return s.slice(0, 120);
+}
+
+/** Title-case a merchant key for display when no better name exists. */
+export function displayMerchant(key: string): string {
+  return key.replace(/\b[a-z]/g, (c) => c.toUpperCase());
+}

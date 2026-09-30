@@ -1,0 +1,49 @@
+{
+  "name": "budget",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Personal budgeting app: automatic bank sync, category budgets, recurring bills, goals and reports.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @budget/web",
+    "build": "npm run build -w @budget/web",
+    "preview": "npm run preview -w @budget/web",
+    "test": "vitest run && vitest run --root apps/web",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p packages/core && tsc -p packages/api && tsc -p apps/web && tsc -p supabase/functions",
+    "lint": "eslint .",
+    "verify": "npm run core:check && npm run format:check && npm run typecheck && npm run lint && npm test",
+    "core:sync": "node scripts/sync-core-to-functions.mjs",
+    "core:check": "node scripts/sync-core-to-functions.mjs --check",
+    "keygen": "node scripts/generate-encryption-key.mjs",
+    "db:start": "supabase start",
+    "db:reset": "supabase db reset",
+    "db:push": "supabase db push",
+    "functions:serve": "npm run core:sync && supabase functions serve --env-file supabase/functions/.env",
+    "functions:deploy": "npm run core:check && supabase functions deploy",
+    "format": "prettier --write . && npm run core:sync",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@eslint/js": "^9.39.5",
+    "@supabase/supabase-js": "^2.117.2",
+    "@types/node": "^26.6.3",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
+    "jose": "^6.2.12",
+    "prettier": "^3.9.9",
+    "supabase": "^2.118.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.2"
+  }
+}

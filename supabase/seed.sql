@@ -1,0 +1,3 @@
+-- Local development seed (runs after migrations on `supabase db reset`).
+-- Intentionally empty: default categories are created per user by the
+-- on_auth_user_created trigger when you sign up locally.
